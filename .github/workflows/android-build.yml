@@ -1,0 +1,47 @@
+name: Build NIGHTWATCH TV APK
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'NIGHTWATCH-TV-starter-updated.zip'
+      - '.github/workflows/android-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Unpack project archive
+        run: |
+          unzip -q NIGHTWATCH-TV-starter-updated.zip -d unpacked
+          echo "Archive contents:"
+          find unpacked -maxdepth 3 -type f | head -80
+          ROOT="$(find unpacked -type f -name settings.gradle.kts -printf '%h\n' | head -1)"
+          if [ -z "$ROOT" ]; then
+            echo "settings.gradle.kts not found in archive"
+            exit 1
+          fi
+          cp -a "$ROOT"/. .
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NIGHTWATCH-TV-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
