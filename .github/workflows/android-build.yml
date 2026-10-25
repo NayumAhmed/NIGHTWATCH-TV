@@ -10,17 +10,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Unpack project archive
         run: |
           unzip -q NIGHTWATCH-TV-starter-updated.zip -d unpacked
-          echo "Archive contents:"
-          find unpacked -maxdepth 3 -type f | head -80
           ROOT="$(find unpacked -type f -name settings.gradle.kts -printf '%h\n' | head -1)"
           if [ -z "$ROOT" ]; then
             echo "settings.gradle.kts not found in archive"
+            find unpacked -maxdepth 4 -type f | head -100
             exit 1
           fi
           cp -a "$ROOT"/. .
@@ -29,10 +31,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android SDK platform
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | head -1)"
+          fi
+          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "Android SDK manager not found on runner"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
